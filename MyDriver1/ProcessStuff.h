@@ -33,21 +33,21 @@
 //// make this global so Source.c can use the lock too
 //extern EX_SPIN_LOCK spinlock;
 
-//#pragma once
-//
-//typedef struct {
-//    PEPROCESS Process;
-//    PEPROCESS CreatingProcess;
-//    ULONG InitialGraceExpired;
-//    LIST_ENTRY ListEntry;
-//} MyProcessInfo;
-//
-//MyProcessInfo* LookupMyProcessInfo(PEPROCESS Process);
-//PEPROCESS LookupCreatingProcess(PEPROCESS Process);
-//BOOLEAN MyProcessInfoAllowOnce(PEPROCESS Process);
-//void FreeMyProcessInfo(MyProcessInfo* myProcessInfo);
-//MyProcessInfo* CreateMyProcessInfo(PEPROCESS Process, PEPROCESS CreatingProcess);
-//void InitializeMyProcessInfoList();
-//void FreeMyProcessInfoList();
-//
-//extern EX_SPIN_LOCK MyProcessInfoListLock;
+#pragma once
+
+typedef struct {
+    PEPROCESS Process;
+    PEPROCESS CreatingProcess;
+    ULONG InitialGraceExpired;
+    LIST_ENTRY ListEntry;
+} MyProcessInfo;
+
+MyProcessInfo* LookupMyProcessInfo(PEPROCESS Process);
+PEPROCESS LookupCreatingProcess(PEPROCESS Process);
+BOOLEAN MyProcessInfoAllowOnce(PEPROCESS Process);
+void FreeMyProcessInfo(MyProcessInfo* myProcessInfo);
+MyProcessInfo* CreateMyProcessInfo(PEPROCESS Process, PEPROCESS CreatingProcess);
+void InitializeMyProcessInfoList();
+void FreeMyProcessInfoList();
+
+extern EX_SPIN_LOCK MyProcessInfoListLock;

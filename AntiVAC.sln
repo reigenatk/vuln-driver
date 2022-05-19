@@ -3,14 +3,14 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
 VisualStudioVersion = 16.0.31129.286
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "exploit", "exploit\exploit.vcxproj", "{B73EAC97-9B62-4D0B-9FA6-EFB9F78FA252}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AsrDrvExploit", "exploit\exploit.vcxproj", "{B73EAC97-9B62-4D0B-9FA6-EFB9F78FA252}"
 	ProjectSection(ProjectDependencies) = postProject
 		{9303A004-69A0-4C6D-B317-51A1CE7E3BE7} = {9303A004-69A0-4C6D-B317-51A1CE7E3BE7}
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MyDriver1", "MyDriver1\MyDriver1.vcxproj", "{9303A004-69A0-4C6D-B317-51A1CE7E3BE7}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ManualMapper", "ManualMapper\ManualMapper.vcxproj", "{6BF7267E-2B17-4088-A5B0-2864A1754F35}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MyManualMapper", "MyManualMapper\MyManualMapper.vcxproj", "{AC88A37B-4972-480A-BF2A-B811D9A1668D}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -58,18 +58,18 @@ Global
 		{9303A004-69A0-4C6D-B317-51A1CE7E3BE7}.Release|x86.ActiveCfg = Release|Win32
 		{9303A004-69A0-4C6D-B317-51A1CE7E3BE7}.Release|x86.Build.0 = Release|Win32
 		{9303A004-69A0-4C6D-B317-51A1CE7E3BE7}.Release|x86.Deploy.0 = Release|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Debug|ARM.ActiveCfg = Debug|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Debug|ARM64.ActiveCfg = Debug|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Debug|x64.ActiveCfg = Debug|x64
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Debug|x64.Build.0 = Debug|x64
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Debug|x86.ActiveCfg = Debug|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Debug|x86.Build.0 = Debug|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Release|ARM.ActiveCfg = Release|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Release|ARM64.ActiveCfg = Release|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Release|x64.ActiveCfg = Release|x64
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Release|x64.Build.0 = Release|x64
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Release|x86.ActiveCfg = Release|Win32
-		{6BF7267E-2B17-4088-A5B0-2864A1754F35}.Release|x86.Build.0 = Release|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Debug|ARM.ActiveCfg = Debug|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Debug|ARM64.ActiveCfg = Debug|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Debug|x64.ActiveCfg = Debug|x64
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Debug|x64.Build.0 = Debug|x64
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Debug|x86.ActiveCfg = Debug|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Debug|x86.Build.0 = Debug|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Release|ARM.ActiveCfg = Release|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Release|ARM64.ActiveCfg = Release|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Release|x64.ActiveCfg = Release|x64
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Release|x64.Build.0 = Release|x64
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Release|x86.ActiveCfg = Release|Win32
+		{AC88A37B-4972-480A-BF2A-B811D9A1668D}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

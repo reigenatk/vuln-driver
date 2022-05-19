@@ -6,103 +6,14 @@
 #include <wdm.h>
 #include "proto.h"
 #include "ntoskrnl_exports.h"
-//#include "ProcessStuff.h"
+#include "ProcessStuff.h"
 
 
-char* target_process = "Calculator.exe";
+char* target_process = "csgo.exe";
 
 
 NTSTATUS ret;
 PKTIMER timer;
-
-typedef struct {
-	PEPROCESS Process;
-	PEPROCESS CreatingProcess;
-	ULONG InitialGraceExpired;
-	LIST_ENTRY ListEntry;
-} MyProcessInfo;
-
-EX_SPIN_LOCK MyProcessInfoListLock;
-LIST_ENTRY MyProcessInfoList;
-
-// You need to hold the lock to call this
-MyProcessInfo* LookupMyProcessInfo(PEPROCESS Process)
-{
-	for (LIST_ENTRY* MyListEntry = MyProcessInfoList.Flink; MyListEntry != &MyProcessInfoList; MyListEntry = MyListEntry->Flink)
-	{
-		MyProcessInfo* myShit = CONTAINING_RECORD(MyListEntry, MyProcessInfo, ListEntry);
-		if (myShit->Process == Process)
-			return myShit;
-	}
-	return NULL;
-}
-
-PEPROCESS LookupCreatingProcess(PEPROCESS Process)
-{
-	KIRQL OriginalIrql = ExAcquireSpinLockExclusive(&MyProcessInfoListLock);
-	MyProcessInfo* myShit = LookupMyProcessInfo(Process);
-	PEPROCESS CreatingProcess = myShit ? myShit->CreatingProcess : NULL;
-	ExReleaseSpinLockExclusive(&MyProcessInfoListLock, OriginalIrql);
-	return CreatingProcess;
-}
-
-BOOLEAN MyProcessInfoAllowOnce(PEPROCESS Process)
-{
-	KIRQL OriginalIrql = ExAcquireSpinLockExclusive(&MyProcessInfoListLock);
-	MyProcessInfo* myShit = LookupMyProcessInfo(Process);
-	BOOLEAN Result = FALSE;
-	if (myShit)
-	{
-		Result = myShit->InitialGraceExpired < 30; // allow first 30 handles
-		myShit->InitialGraceExpired++;
-	}
-	ExReleaseSpinLockExclusive(&MyProcessInfoListLock, OriginalIrql);
-	return Result;
-}
-
-// You need to hold the lock to call this
-void FreeMyProcessInfo(MyProcessInfo* myProcessInfo)
-{
-	RemoveEntryList(&myProcessInfo->ListEntry);
-	ObDereferenceObject(myProcessInfo->Process);
-	ObDereferenceObject(myProcessInfo->CreatingProcess);
-	ExFreePool(myProcessInfo);
-}
-
-// You need to hold the lock to call this
-MyProcessInfo* CreateMyProcessInfo(PEPROCESS Process, PEPROCESS CreatingProcess)
-{
-	MyProcessInfo* myShit = ExAllocatePool(NonPagedPool, sizeof(MyProcessInfo));
-	if (!myShit)
-	{
-		DBG_LOG("wtf ExAllocatePool fails");
-		__debugbreak();
-	}
-	RtlZeroMemory(myShit, sizeof(MyProcessInfo));
-	DBG_LOG("Process=%p, CreatingProcess=%p", Process, CreatingProcess);
-	ObReferenceObject(Process);
-	ObReferenceObject(CreatingProcess);
-	myShit->Process = Process;
-	myShit->CreatingProcess = CreatingProcess;
-	myShit->InitialGraceExpired = FALSE;
-	InsertHeadList(&MyProcessInfoList, &myShit->ListEntry);
-	return myShit;
-}
-
-void InitializeMyProcessInfoList()
-{
-	InitializeListHead(&MyProcessInfoList);
-}
-
-void FreeMyProcessInfoList()
-{
-	KIRQL OriginalIrql = ExAcquireSpinLockExclusive(&MyProcessInfoListLock);
-	while (!IsListEmpty(&MyProcessInfoList))
-	{
-		FreeMyProcessInfo(CONTAINING_RECORD(MyProcessInfoList.Flink, MyProcessInfo, ListEntry));
-	}
-	ExReleaseSpinLockExclusive(&MyProcessInfoListLock, OriginalIrql);
-}
 
 // this is our bytecode that we overwrite the beep ioctl handler with.
 // We use it to write into beep driver's memory, the program image of a driver executable, specifically, the driverentry function below
@@ -195,6 +106,16 @@ __int64 __declspec(dllexport) __fastcall MyIRPControl(struct _DEVICE_OBJECT* a1,
     return 0;
 }
 
+BOOLEAN isAllowedProgram(char* requesting_process) {
+    // strstr(requesting_process, "ProcessHacker") || strstr(requesting_process, "cheatengine")
+    if (strstr(requesting_process, "csrss") || strstr(requesting_process, "lsass") || strstr(requesting_process, "x32dbg") || strstr(requesting_process, "mycsgostuff")
+         || strstr(requesting_process, "svchost") || strstr(requesting_process, "explorer.exe") || strstr(requesting_process, "WerFault.exe") || strstr(requesting_process, "System")
+        || strstr(requesting_process, "MsMpEng") || strstr(requesting_process, target_process), strstr(requesting_process, "steam.exe")) {
+        return TRUE;
+    }
+    return FALSE;
+}
+
 // we will use these variables to keep track of our driver's execution state 
 volatile LONG isUnloading;
 volatile LONG ScanHandlesQueue;
@@ -217,7 +138,7 @@ PVOID null_text_section_start;
 PDRIVER_OBJECT pNullDriverObj;
 PVOID callback_handle;
 PVOID notif_routine_trampoline;
-
+PVOID nullDrvSectionHandle;
 
 void MyUnloadRoutine(PVOID StartContext) {
     DBG_LOG("Unload thread executing!\n");
@@ -240,7 +161,7 @@ void MyUnloadRoutine(PVOID StartContext) {
 
     //// free process linked list
     // FreeMyProcessInfoList();
-    DBG_LOG("Freed Process linked list\n");
+    // DBG_LOG("Freed Process linked list\n");
 
     //// free the timer, stop any queueing DPCs that havent run yet
     //// https://docs.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-kecanceltimer
@@ -250,7 +171,7 @@ void MyUnloadRoutine(PVOID StartContext) {
     ObDereferenceObject(pNullDriverObj);
 
     //// release page from the main memory so it can be paged out again
-    MmUnlockPagableImageSection(null_text_section_start);
+    MmUnlockPagableImageSection(nullDrvSectionHandle);
     DBG_LOG("Unlocked Null device text page.\n");
 }
 
@@ -285,6 +206,19 @@ OB_PREOP_CALLBACK_STATUS my_preoperation_callback(
 )
 {
     InterlockedIncrement(&stuffToReleaseBeforeUnload);
+
+    // distinguish between which operation is being done (create or duplicate?), and hence also figuring out which access we need to change
+    ACCESS_MASK* pDesiredAccess;
+    if (OperationInformation->Operation == OB_OPERATION_HANDLE_DUPLICATE) {
+        pDesiredAccess = &OperationInformation->Parameters->DuplicateHandleInformation.DesiredAccess;
+    }
+    else if (OperationInformation->Operation == OB_OPERATION_HANDLE_CREATE) {
+        pDesiredAccess = &OperationInformation->Parameters->CreateHandleInformation.DesiredAccess;
+    }
+    else {
+        DBG_LOG("Operation not defined\n");
+        goto done;
+    }
     // no kernel handles should be messed with
     if (OperationInformation->KernelHandle) {
         goto done;
@@ -312,8 +246,7 @@ OB_PREOP_CALLBACK_STATUS my_preoperation_callback(
         // if the handle its trying to get is to our target process we're tryna protect
         if (strstr(handle_process_name, target_process)) {
 
-            if (strstr(requesting_process, "csrss") || strstr(requesting_process, "lsass") || strstr(requesting_process, "cheatengine") || strstr(requesting_process, "x32dbg") || strstr(requesting_process, "mycsgostuff")
-                || strstr(requesting_process, "ProcessHacker") || strstr(requesting_process, "svchost") || strstr(requesting_process, "explorer.exe")) {
+            if (isAllowedProgram(requesting_process) || !strcmp("csrss.exe", requesting_process)) {
                 DBG_LOG("I know you, %s. You can get a handle to %s.\n", requesting_process, target_process);
                 goto done;
             }
@@ -329,7 +262,7 @@ OB_PREOP_CALLBACK_STATUS my_preoperation_callback(
 
             //    LARGE_INTEGER interval;
             //    interval.QuadPart = -10000 * 5000; // 5 seconds
-            //    BOOLEAN WasAlreadyQueued = KeSetTimer(&timer, interval, &Dpc);
+            //    BOOLEAN WasAlreadyQueued = KeSetTimerEx(&timer, interval, 100, &Dpc);
             //    if (!WasAlreadyQueued) {
             //      // then DPC will run so mark that
             //      InterlockedIncrement(&stuffToReleaseBeforeUnload);
@@ -339,8 +272,9 @@ OB_PREOP_CALLBACK_STATUS my_preoperation_callback(
             //}
             /*else {*/
               // https://docs.microsoft.com/en-us/windows/win32/procthread/process-security-and-access-rights
-            OperationInformation->Parameters->CreateHandleInformation.DesiredAccess = SYNCHRONIZE | PROCESS_TERMINATE;
-            DBG_LOG("get away from my %s, %s! Nerfed Handle rights\n", target_process, requesting_process);
+            uint64_t minimal_rights = SYNCHRONIZE | PROCESS_TERMINATE;
+            *pDesiredAccess = minimal_rights;
+            DBG_LOG("get away from my %s, %s! Given minimal rights of %x\n", target_process, requesting_process, minimal_rights);
             goto done;
             /*}*/
 
@@ -359,7 +293,7 @@ OB_PREOP_CALLBACK_STATUS my_preoperation_callback(
         if (strstr(requesting_process_name, target_process)) {
             DBG_LOG("Process %p tried to access our baby %s using thread at %p, flags requested were %x\n", requesting_process, target_process, handle_thread, OperationInformation->Parameters->CreateHandleInformation.DesiredAccess);
             // https://docs.microsoft.com/en-us/windows/win32/procthread/thread-security-and-access-rights
-            OperationInformation->Parameters->CreateHandleInformation.DesiredAccess = SYNCHRONIZE | THREAD_TERMINATE | THREAD_SUSPEND_RESUME;
+            *pDesiredAccess = SYNCHRONIZE | THREAD_TERMINATE | THREAD_SUSPEND_RESUME;
         }
         ObDereferenceObject(requesting_process);
     }
@@ -401,13 +335,8 @@ BOOLEAN stripHandle(HANDLE_TABLE* HandleTable, HANDLE_TABLE_ENTRY* HandleTableEn
     PEPROCESS handle_owning_process = (PEPROCESS)EnumParameter;
     char* owning_process_name = PsGetProcessImageFileName(handle_owning_process);
     // dont downgrade handles from cheatengine, x32dbg, our dll injector (who will need a handle to csgo to inject) and ProcessHacker
-    if (strstr(owning_process_name, "cheatengine") || strstr(owning_process_name, "x32dbg") || strstr(owning_process_name, "mycsgostuff")) {
+    if (isAllowedProgram(owning_process_name)) {
         // then it is allowed
-        DBG_LOG("Handle is from allowed program %s\n", owning_process_name);
-        goto exit;
-    }
-    // let system and csrss hold handles
-    if (PsGetProcessId(handle_owning_process) == SYSTEM_PROCESS_ID || strstr(owning_process_name, "csrss") || strstr(owning_process_name, "svchost") || strstr(owning_process_name, target_process)) {
         DBG_LOG("Handle is from allowed program %s\n", owning_process_name);
         goto exit;
     }
@@ -466,7 +395,7 @@ void WalkHandleTable(PEPROCESS p) {
     // DBG_LOG("Walking handle table for process %p\n", p);
     HANDLE_TABLE* handle_table = *(void**)((uintptr_t)p + HANDLE_TABLE_OFFSET);
     if (handle_table && MmIsAddressValid(handle_table)) {
-        DBG_LOG("Enumerating Handle table at %p for process %s\n", handle_table, PsGetProcessImageFileName(p));
+        // DBG_LOG("Enumerating Handle table at %p for process %s\n", handle_table, PsGetProcessImageFileName(p));
         HANDLE h; // The handle that ExEnumHandleTable stopped at, only valid if the return value is true. We don't really care because we won't use it 
 
         // this calls striphandle routine for EACH HANDLE IN THE TABLE!
@@ -554,7 +483,7 @@ void my_notif_routine(PEPROCESS Process, HANDLE ProcessId, PPS_CREATE_NOTIFY_INF
         else {
             KIRQL irql = ExAcquireSpinLockExclusive(&MyProcessInfoListLock);
             //// add new process into linked list
-            //MyProcessInfo* newProcessStruct = insertNewProcessEntry(creating_process, Process);
+            // MyProcessInfo* newProcessStruct = CreateMyProcessInfo(Process, creating_process);
             char* creating_process_name = PsGetProcessImageFileName(creating_process);
             DBG_LOG("Process %s was created by %s, pid %d, ran with cmd %S\n", name_of_new_process, creating_process_name, (int)creating_pid, cmdline);
             ObDereferenceObject(creating_process);
@@ -607,7 +536,7 @@ NTSTATUS insertTrampolines() {
     null_text_section_start = (void*)((uintptr_t)pNullDriverObj->DriverStart + FOUR_KB);
 
     // lock page into memory (cant be swapped out to disk)
-    MmLockPagableCodeSection(null_text_section_start);
+    nullDrvSectionHandle = MmLockPagableCodeSection(null_text_section_start);
 
     // http://www.codewarrior.cn/ntdoc/winnt/mm/MiLookupDataTableEntry.htm
     PLDR_DATA_TABLE_ENTRY Entry = MiLookupDataTableEntry(null_text_section_start, 0);
@@ -674,7 +603,7 @@ _Use_decl_annotations_ NTSTATUS DriverEntry(MyIrpStruct* info) {
     DBG_LOG("HELLO FROM DRIVER\n");
 
     // initialize process linkedlist
-    // InitializeMyProcessInfoList();
+    //InitializeListHead(&MyProcessInfoList);
     RtlZeroMemory(&MyProcessInfoListLock, sizeof(MyProcessInfoListLock));
 
     // driver STATE initialization
