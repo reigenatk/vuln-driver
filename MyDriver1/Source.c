@@ -107,10 +107,11 @@ __int64 __declspec(dllexport) __fastcall MyIRPControl(struct _DEVICE_OBJECT* a1,
 }
 
 BOOLEAN isAllowedProgram(char* requesting_process) {
-    // strstr(requesting_process, "ProcessHacker") || strstr(requesting_process, "cheatengine")
-    if (strstr(requesting_process, "csrss") || strstr(requesting_process, "lsass") || strstr(requesting_process, "x32dbg") || strstr(requesting_process, "mycsgostuff")
-         || strstr(requesting_process, "svchost") || strstr(requesting_process, "explorer.exe") || strstr(requesting_process, "WerFault.exe") || strstr(requesting_process, "System")
-        || strstr(requesting_process, "MsMpEng") || strstr(requesting_process, target_process), strstr(requesting_process, "steam.exe")) {
+    // 
+    if (strstr(requesting_process, "csrss") || strstr(requesting_process, "lsass") || strstr(requesting_process, "x32dbg") || strstr(requesting_process, "dllinjector")
+         || strstr(requesting_process, "svchost") || strstr(requesting_process, "explorer.exe") || strstr(requesting_process, "WerFault.exe") || strstr(requesting_process, "system")
+        || strstr(requesting_process, "MsMpEng") || strstr(requesting_process, target_process), strstr(requesting_process, "steam.exe") ||
+        strstr(requesting_process, "ProcessHacker") || strstr(requesting_process, "cheatengine") || strstr(requesting_process, "CSGODLL")) {
         return TRUE;
     }
     return FALSE;
@@ -246,7 +247,7 @@ OB_PREOP_CALLBACK_STATUS my_preoperation_callback(
         // if the handle its trying to get is to our target process we're tryna protect
         if (strstr(handle_process_name, target_process)) {
 
-            if (isAllowedProgram(requesting_process) || !strcmp("csrss.exe", requesting_process)) {
+            if (isAllowedProgram(requesting_process) || !strcmp("csrss.exe", requesting_process) || PsGetProcessId(IoGetCurrentProcess()) == 4 || !strcmp("System", requesting_process)) {
                 DBG_LOG("I know you, %s. You can get a handle to %s.\n", requesting_process, target_process);
                 goto done;
             }
