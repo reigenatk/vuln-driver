@@ -22,6 +22,8 @@ char* target_process = "csgo.exe";
 ![image](https://user-images.githubusercontent.com/69275171/169476954-d6bdccdc-7f81-44df-bdfb-9605c3e6e20f.png)
 
 3. After installation finishes (don't worry if you get any error messages, we don't have the right motherboard so it will be confused), you should see "AsrDrv104.sys" in [Process Hacker 2](https://processhacker.sourceforge.io/downloads.php) under the services tab. Right click on it and click "Start". It should change to status "Running". The IOCTL handler is now ready to process requests from usermode programs!
+
+
 ![image](https://user-images.githubusercontent.com/69275171/169472021-42cd50a9-7428-4568-b334-fa8faa380420.png)
 
 4. Open up the project in Visual Studio, run the project in Release. I'm not sure if Visual studio saves Configuration settings, but the projects titled "AsrDrvExploit" and "MyManualMapper" require C++17. Also, you need the [WDK](https://docs.microsoft.com/en-us/windows-hardware/drivers/download-the-wdk) (Windows Driver Kit), which will provide the wdm.h header. There are a few more subtlties that may need to be figured out, setting up the driver kit can be a bit of a pain. I know it was for me.
